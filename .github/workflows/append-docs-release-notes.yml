@@ -32,11 +32,11 @@ jobs:
       && !startsWith(github.event.pull_request.title, 'chore(release)')
       && !startsWith(github.event.pull_request.title, 'chore: release')
       && !contains(github.event.pull_request.body, '[skip-docs]')
-    runs-on: ubuntu-latest
+    runs-on: macos-15
     steps:
-      - name: Checkout docs-website (next branch if it exists)
-        uses: actions/checkout@v4
+      - uses: actions/checkout@master
         with:
+          submodules: true
           repository: ${{ env.DOCS_REPO }}
           token: ${{ secrets.DOCS_WEBSITE_PAT }}
           ref: ${{ env.DOCS_HEAD }}
@@ -46,7 +46,7 @@ jobs:
 
       - name: Bootstrap — checkout base and create next branch
         if: steps.checkout_next.outcome != 'success'
-        uses: actions/checkout@v4
+        uses: actions/checkout@master
         with:
           repository: ${{ env.DOCS_REPO }}
           token: ${{ secrets.DOCS_WEBSITE_PAT }}
