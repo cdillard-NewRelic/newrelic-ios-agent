@@ -7,7 +7,7 @@
 //
 
 import SwiftUI
-
+//test
 public struct NRConditionalMaskView<Content: View>: View {
     private let maskApplicationText: Bool?
     private let maskUserInputText: Bool?
@@ -16,9 +16,7 @@ public struct NRConditionalMaskView<Content: View>: View {
     private let blockView: Bool?
 
     private let sessionReplayIdentifier: String?
-    
     private let activated: Bool
-    
     private let content: () -> Content
     
     public init(maskApplicationText: Bool? = nil,
