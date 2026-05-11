@@ -90,9 +90,13 @@ jobs:
 
           # Route by PR title prefix. fix:/bugfix: -> Fixed section.
           # add:/feat:/feature: -> New section. Anything else -> no bullet.
-          if [[ "$PR_TITLE" =~ ^(fix|bugfix)(\([^)]*\))?:[[:space:]] ]]; then
+          # Regexes live in variables because `[[ =~ ]]` mis-parses inline regexes
+          # that contain parentheses inside character classes (bash FAQ #100).
+          FIX_RE='^(fix|bugfix)(\([^)]+\))?:[[:space:]]'
+          ADD_RE='^(add|feat|feature)(\([^)]+\))?:[[:space:]]'
+          if [[ "$PR_TITLE" =~ $FIX_RE ]]; then
             SECTION="### Fixed in this release"
-          elif [[ "$PR_TITLE" =~ ^(add|feat|feature)(\([^)]*\))?:[[:space:]] ]]; then
+          elif [[ "$PR_TITLE" =~ $ADD_RE ]]; then
             SECTION="### New in this release"
           else
             echo "PR title '$PR_TITLE' is not fix:/add:/feat: — not appending a bullet."
@@ -101,7 +105,7 @@ jobs:
 
           # Strip the prefix so the bullet isn't redundant with the section header.
           CLEAN_TITLE=$(printf '%s' "$PR_TITLE" \
-            | sed -E 's/^(fix|bugfix|add|feat|feature)(\([^)]*\))?:[[:space:]]*//')
+            | sed -E 's/^(fix|bugfix|add|feat|feature)(\([^)]+\))?:[[:space:]]*//')
           BULLET=$(printf -- '* %s ([#%s](%s)) — @%s' \
             "$CLEAN_TITLE" "$PR_NUMBER" "$PR_URL" "$PR_AUTHOR")
 
