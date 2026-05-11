@@ -49,6 +49,7 @@ jobs:
       - name: Checkout docs-website (next branch if it exists)
         uses: actions/checkout@v4
         with:
+          submodules: true
           repository: ${{ env.DOCS_REPO }}
           token: ${{ secrets.DOCS_WEBSITE_PAT }}
           ref: ${{ env.DOCS_HEAD }}
@@ -58,7 +59,7 @@ jobs:
 
       - name: Bootstrap — checkout base and create next branch
         if: steps.checkout_next.outcome != 'success'
-        uses: actions/checkout@v4
+        uses: actions/checkout@master
         with:
           repository: ${{ env.DOCS_REPO }}
           token: ${{ secrets.DOCS_WEBSITE_PAT }}
