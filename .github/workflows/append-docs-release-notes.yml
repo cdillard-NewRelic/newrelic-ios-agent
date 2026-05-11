@@ -34,6 +34,18 @@ jobs:
       && !contains(github.event.pull_request.body, '[skip-docs]')
     runs-on: ubuntu-latest
     steps:
+      - name: Fetch release-notes template from ios-agent
+        uses: actions/checkout@v4
+        with:
+          path: ios-agent-src
+          sparse-checkout: ios-agent-next.mdx
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+
+      - name: Stash template to runner temp
+        # Later checkouts clean $GITHUB_WORKSPACE, so move the template out of the way first.
+        run: cp ios-agent-src/ios-agent-next.mdx "$RUNNER_TEMP/ios-agent-next.mdx"
+
       - name: Checkout docs-website (next branch if it exists)
         uses: actions/checkout@v4
         with:
@@ -57,7 +69,16 @@ jobs:
         if: steps.checkout_next.outcome != 'success'
         run: git checkout -b "$DOCS_HEAD"
 
-      - name: Append release-notes entry
+      - name: Bootstrap release-notes file from template
+        run: |
+          set -euo pipefail
+          if [[ ! -f "$DOCS_FILE" ]]; then
+            mkdir -p "$(dirname "$DOCS_FILE")"
+            cp "$RUNNER_TEMP/ios-agent-next.mdx" "$DOCS_FILE"
+            echo "Bootstrapped $DOCS_FILE from template."
+          fi
+
+      - name: Append entry to correct section
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -65,10 +86,38 @@ jobs:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           set -euo pipefail
-          mkdir -p "$(dirname "$DOCS_FILE")"
-          touch "$DOCS_FILE"
-          printf -- '- %s ([#%s](%s)) — @%s\n' \
-            "$PR_TITLE" "$PR_NUMBER" "$PR_URL" "$PR_AUTHOR" >> "$DOCS_FILE"
+
+          # Route by PR title prefix. fix:/bugfix: -> Fixed section.
+          # add:/feat:/feature: -> New section. Anything else -> no bullet.
+          if [[ "$PR_TITLE" =~ ^(fix|bugfix)(\([^)]*\))?:[[:space:]] ]]; then
+            SECTION="### Fixed in this release"
+          elif [[ "$PR_TITLE" =~ ^(add|feat|feature)(\([^)]*\))?:[[:space:]] ]]; then
+            SECTION="### New in this release"
+          else
+            echo "PR title '$PR_TITLE' is not fix:/add:/feat: — not appending a bullet."
+            exit 0
+          fi
+
+          # Strip the prefix so the bullet isn't redundant with the section header.
+          CLEAN_TITLE=$(printf '%s' "$PR_TITLE" \
+            | sed -E 's/^(fix|bugfix|add|feat|feature)(\([^)]*\))?:[[:space:]]*//')
+          BULLET=$(printf -- '* %s ([#%s](%s)) — @%s' \
+            "$CLEAN_TITLE" "$PR_NUMBER" "$PR_URL" "$PR_AUTHOR")
+
+          # Insert bullet at the end of the target section (before the next `### ` or EOF).
+          # Emit a blank line after the bullet so markdownlint's "headings need blank lines"
+          # rule (MD022) stays happy when the next line is another `### ` heading.
+          awk -v section="$SECTION" -v line="$BULLET" '
+            /^### / {
+              if (in_section && !inserted) { print line; print ""; inserted = 1 }
+              in_section = ($0 == section)
+              print
+              next
+            }
+            { print }
+            END { if (in_section && !inserted) { print line; print "" } }
+          ' "$DOCS_FILE" > "$DOCS_FILE.tmp"
+          mv "$DOCS_FILE.tmp" "$DOCS_FILE"
 
       - name: Commit and push
         env:
