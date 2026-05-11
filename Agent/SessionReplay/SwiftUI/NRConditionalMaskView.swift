@@ -7,7 +7,7 @@
 //
 
 import SwiftUI
-//test 6
+//test 7
 public struct NRConditionalMaskView<Content: View>: View {
     private let maskApplicationText: Bool?
     private let maskUserInputText: Bool?
