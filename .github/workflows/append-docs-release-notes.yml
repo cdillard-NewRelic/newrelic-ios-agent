@@ -34,6 +34,13 @@ jobs:
       && !contains(github.event.pull_request.body, '[skip-docs]')
     runs-on: ubuntu-latest
     steps:
+      - name: Cleanup temporary files
+        run: |
+          rm -rf ${{ runner.temp }}/*
+          # Or to clean the entire workspace
+          rm -rf $GITHUB_WORKSPACE/*
+        if: always() # Ensures cleanup runs even if previous steps fail
+
       - name: Fetch release-notes template from ios-agent
         uses: actions/checkout@v4
         with:
