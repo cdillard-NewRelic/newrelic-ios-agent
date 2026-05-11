@@ -79,7 +79,7 @@ jobs:
             echo "Bootstrapped $DOCS_FILE from template."
           fi
 
-      - name: Append entry to correct section
+      - name: Append entry to Fixed section
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -88,33 +88,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Route by PR title prefix. fix:/bugfix: -> Fixed section.
-          # add:/feat:/feature: -> New section. Anything else -> no bullet.
-          # `case` with glob patterns instead of `[[ =~ ]]` — bash's `[[ ]]` tokenizer
-          # mis-parses inline regexes that contain `)` inside a character class, even
-          # on bash 5 (BashFAQ/100). Globs sidestep the issue entirely.
-          case "$PR_TITLE" in
-            "fix: "*|"fix("*"): "*|"bugfix: "*|"bugfix("*"): "*)
-              SECTION="### Fixed in this release"
-              ;;
-            "add: "*|"add("*"): "*|"feat: "*|"feat("*"): "*|"feature: "*|"feature("*"): "*)
-              SECTION="### New in this release"
-              ;;
-            *)
-              echo "PR title '$PR_TITLE' is not fix:/add:/feat: — not appending a bullet."
-              exit 0
-              ;;
-          esac
+          SECTION="### Fixed in this release"
+          # Double-quoted concatenation — any `(` or `)` in PR_TITLE is literal.
+          BULLET="* ${PR_TITLE} ([#${PR_NUMBER}](${PR_URL})) — @${PR_AUTHOR}"
 
-          # Strip the prefix so the bullet isn't redundant with the section header.
-          CLEAN_TITLE=$(printf '%s' "$PR_TITLE" \
-            | sed -E 's/^(fix|bugfix|add|feat|feature)(\([^)]*\))?:[[:space:]]*//')
-          BULLET=$(printf -- '* %s ([#%s](%s)) — @%s' \
-            "$CLEAN_TITLE" "$PR_NUMBER" "$PR_URL" "$PR_AUTHOR")
-
-          # Insert bullet at the end of the target section (before the next `### ` or EOF).
-          # Emit a blank line after the bullet so markdownlint's "headings need blank lines"
-          # rule (MD022) stays happy when the next line is another `### ` heading.
+          # Insert the bullet at the end of the Fixed section (before the next
+          # `### ` heading or EOF). Trailing blank line keeps markdownlint (MD022) happy.
           awk -v section="$SECTION" -v line="$BULLET" '
             /^### / {
               if (in_section && !inserted) { print line; print ""; inserted = 1 }
